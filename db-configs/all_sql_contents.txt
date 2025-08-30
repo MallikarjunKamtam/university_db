@@ -1,0 +1,467 @@
+----------------------------------------
+-- File: ./db-scripts/V1__create_schemas.sql
+----------------------------------------
+CREATE SCHEMA IF NOT EXISTS academic;
+CREATE SCHEMA IF NOT EXISTS admin;
+CREATE SCHEMA IF NOT EXISTS library;
+CREATE SCHEMA IF NOT EXISTS finance;
+CREATE SCHEMA IF NOT EXISTS student_life;
+CREATE SCHEMA IF NOT EXISTS system;
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V2__academic.departments.sql
+----------------------------------------
+CREATE TABLE academic.departments (
+    department_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    building VARCHAR(100)
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V3__academic.programs.sql
+----------------------------------------
+CREATE TABLE academic.programs (
+    program_id SERIAL PRIMARY KEY,
+    program_name VARCHAR(100) NOT NULL,
+    degree_level VARCHAR(20) CHECK (degree_level IN ('Bachelors', 'Masters', 'PhD')),
+    duration_years INT CHECK (duration_years BETWEEN 1 AND 10),
+    department_id INT REFERENCES academic.departments(department_id)
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V4__library.authors.sql
+----------------------------------------
+CREATE TABLE library.authors (
+    author_id SERIAL PRIMARY KEY,
+    first_name VARCHAR(50),
+    last_name VARCHAR(50)
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V5__academic.programs.sql
+----------------------------------------
+CREATE TABLE academic.students (
+    student_id SERIAL PRIMARY KEY,
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    dob DATE,
+    gender CHAR(1) CHECK (gender IN ('M', 'F', 'O')),
+    email VARCHAR(100) UNIQUE NOT NULL,
+    phone VARCHAR(20),
+    enrollment_year INT CHECK (enrollment_year >= 2000),
+    program_id INT NOT NULL REFERENCES academic.programs(program_id)
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V6__library.books.sql
+----------------------------------------
+CREATE TABLE library.books (
+    book_id SERIAL PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    isbn VARCHAR(20) UNIQUE NOT NULL,
+    publisher VARCHAR(100),
+    published_year INT CHECK (
+        published_year BETWEEN 1800 AND EXTRACT(YEAR FROM CURRENT_DATE)
+    ),
+    total_copies INT CHECK (total_copies >= 0)
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V7__admin.faculties.sql
+----------------------------------------
+CREATE TABLE admin.faculties (
+    faculty_id SERIAL PRIMARY KEY,
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    email VARCHAR(100) UNIQUE NOT NULL,
+    phone VARCHAR(20),
+    hire_date DATE,
+    designation VARCHAR(50),
+    department_id INT REFERENCES academic.departments(department_id)
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V8__academic.courses.sql
+----------------------------------------
+CREATE TABLE academic.courses (
+    course_id SERIAL PRIMARY KEY,
+    course_code VARCHAR(20) NOT NULL UNIQUE,
+    course_name VARCHAR(100) NOT NULL,
+    credits INT CHECK (credits > 0),
+    department_id INT NOT NULL REFERENCES academic.departments(department_id)
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V9__academic.course_offerings.sql
+----------------------------------------
+CREATE TABLE academic.course_offerings (
+    offering_id SERIAL PRIMARY KEY,
+    course_id INT NOT NULL REFERENCES academic.courses(course_id),
+    faculty_id INT NOT NULL REFERENCES admin.faculties(faculty_id),
+    semester VARCHAR(10) NOT NULL CHECK (semester IN ('Spring', 'Summer', 'Fall', 'Winter')),
+    year INT CHECK (year >= 2000)
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V10__library.book_authors.sql
+----------------------------------------
+CREATE TABLE library.book_authors (
+    book_id INT NOT NULL REFERENCES library.books(book_id),
+    author_id INT NOT NULL REFERENCES library.authors(author_id),
+    PRIMARY KEY (book_id, author_id)
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V11__academic.enrollments.sql
+----------------------------------------
+CREATE TABLE academic.enrollments (
+    enrollment_id SERIAL PRIMARY KEY,
+    student_id INT NOT NULL REFERENCES academic.students(student_id),
+    offering_id INT NOT NULL REFERENCES academic.course_offerings(offering_id),
+    enrollment_date DATE DEFAULT CURRENT_DATE,
+    status VARCHAR(20) CHECK (status IN ('enrolled', 'completed', 'dropped'))
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V12__academic.grades.sql
+----------------------------------------
+CREATE TABLE academic.grades (
+    grade_id SERIAL PRIMARY KEY,
+    enrollment_id INT NOT NULL REFERENCES academic.enrollments(enrollment_id),
+    grade CHAR(2) CHECK (grade IN ('A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F')),
+    graded_on DATE DEFAULT CURRENT_DATE
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V13__academic.assignments.sql
+----------------------------------------
+CREATE TABLE academic.assignments (
+    assignment_id SERIAL PRIMARY KEY,
+    offering_id INT NOT NULL REFERENCES academic.course_offerings(offering_id),
+    title VARCHAR(100) NOT NULL,
+    description TEXT,
+    due_date DATE NOT NULL
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V14__academic.submissions.sql
+----------------------------------------
+CREATE TABLE academic.submissions (
+    submission_id SERIAL PRIMARY KEY,
+    assignment_id INT NOT NULL REFERENCES academic.assignments(assignment_id),
+    student_id INT NOT NULL REFERENCES academic.students(student_id),
+    submitted_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    grade CHAR(2) CHECK (grade IN ('A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F')),
+    feedback TEXT
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V15__academic.exams.sql
+----------------------------------------
+CREATE TABLE academic.exams (
+    exam_id SERIAL PRIMARY KEY,
+    offering_id INT NOT NULL REFERENCES academic.course_offerings(offering_id),
+    exam_type VARCHAR(20) CHECK (exam_type IN ('Midterm', 'Final', 'Quiz')),
+    exam_date DATE NOT NULL,
+    total_marks INT CHECK (total_marks > 0)
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V16__academic.exam_results.sql
+----------------------------------------
+CREATE TABLE academic.exam_results (
+    result_id SERIAL PRIMARY KEY,
+    exam_id INT NOT NULL REFERENCES academic.exams(exam_id),
+    student_id INT NOT NULL REFERENCES academic.students(student_id),
+    marks_obtained INT CHECK (marks_obtained >= 0),
+    grade CHAR(2) CHECK (grade IN ('A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F'))
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V17__admin.rooms.sql
+----------------------------------------
+CREATE TABLE admin.rooms (
+    room_id SERIAL PRIMARY KEY,
+    building VARCHAR(100),
+    room_number VARCHAR(20),
+    capacity INT CHECK (capacity > 0),
+    type VARCHAR(20) CHECK (type IN ('Lecture', 'Lab', 'Auditorium', 'Office'))
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V18__admin.class_schedule.sql
+----------------------------------------
+CREATE TABLE admin.class_schedule (
+    schedule_id SERIAL PRIMARY KEY,
+    offering_id INT NOT NULL REFERENCES academic.course_offerings(offering_id),
+    room_id INT NOT NULL REFERENCES admin.rooms(room_id),
+    day_of_week VARCHAR(10) CHECK (day_of_week IN ('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday')),
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    CONSTRAINT time_check CHECK (end_time > start_time)
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V19__academic.teaching_assistants.sql
+----------------------------------------
+CREATE TABLE academic.teaching_assistants (
+    ta_id SERIAL PRIMARY KEY,
+    offering_id INT NOT NULL REFERENCES academic.course_offerings(offering_id),
+    student_id INT NOT NULL REFERENCES academic.students(student_id),
+    assigned_date DATE DEFAULT CURRENT_DATE
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V20__library.book_loans.sql
+----------------------------------------
+CREATE TABLE library.book_loans (
+    loan_id SERIAL PRIMARY KEY,
+    book_id INT NOT NULL REFERENCES library.books(book_id),
+    student_id INT NOT NULL REFERENCES academic.students(student_id),
+    loan_date DATE DEFAULT CURRENT_DATE,
+    due_date DATE NOT NULL,
+    return_date DATE
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V21__library.fines.sql
+----------------------------------------
+CREATE TABLE library.fines (
+    fine_id SERIAL PRIMARY KEY,
+    loan_id INT NOT NULL REFERENCES library.book_loans(loan_id),
+    amount NUMERIC(7,2) CHECK (amount >= 0),
+    paid BOOLEAN DEFAULT FALSE,
+    fine_date DATE DEFAULT CURRENT_DATE
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V22__student_life.clubs.sql
+----------------------------------------
+CREATE TABLE student_life.clubs (
+    club_id SERIAL PRIMARY KEY,
+    club_name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT,
+    founding_year INT CHECK (founding_year > 1900 AND founding_year <= EXTRACT(YEAR FROM CURRENT_DATE))
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V23__student_life.club_memberships.sql
+----------------------------------------
+CREATE TABLE student_life.club_memberships (
+    membership_id SERIAL PRIMARY KEY,
+    club_id INT NOT NULL REFERENCES student_life.clubs(club_id),
+    student_id INT NOT NULL REFERENCES academic.students(student_id),
+    join_date DATE DEFAULT CURRENT_DATE,
+    role VARCHAR(50) DEFAULT 'Member'
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V24__student_life.events.sql
+----------------------------------------
+CREATE TABLE student_life.events (
+    event_id SERIAL PRIMARY KEY,
+    club_id INT NOT NULL REFERENCES student_life.clubs(club_id),
+    event_name VARCHAR(100) NOT NULL,
+    event_date DATE NOT NULL,
+    location VARCHAR(100),
+    description TEXT
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V25__student_life.housing.sql
+----------------------------------------
+CREATE TABLE student_life.housing (
+    housing_id SERIAL PRIMARY KEY,
+    building_name VARCHAR(100) NOT NULL,
+    address TEXT,
+    capacity INT CHECK (capacity > 0)
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V26__student_life.housing_assignments.sql
+----------------------------------------
+CREATE TABLE student_life.housing_assignments (
+    assignment_id SERIAL PRIMARY KEY,
+    housing_id INT NOT NULL REFERENCES student_life.housing(housing_id),
+    student_id INT NOT NULL REFERENCES academic.students(student_id),
+    room_number VARCHAR(20),
+    assigned_date DATE DEFAULT CURRENT_DATE,
+    vacated_date DATE
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V27__finance.tuition_fees.sql
+----------------------------------------
+CREATE TABLE finance.tuition_fees (
+    tuition_id SERIAL PRIMARY KEY,
+    program_id INT NOT NULL REFERENCES academic.programs(program_id),
+    year INT CHECK (year >= 2000),
+    amount NUMERIC(10, 2) CHECK (amount >= 0)
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V28__finance.payments.sql
+----------------------------------------
+CREATE TABLE finance.payments (
+    payment_id SERIAL PRIMARY KEY,
+    student_id INT NOT NULL REFERENCES academic.students(student_id),
+    tuition_id INT NOT NULL REFERENCES finance.tuition_fees(tuition_id),
+    payment_date DATE DEFAULT CURRENT_DATE,
+    amount NUMERIC(10, 2) CHECK (amount >= 0),
+    payment_method VARCHAR(50)
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V29__finance.scholarships.sql
+----------------------------------------
+CREATE TABLE finance.scholarships (
+    scholarship_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    amount NUMERIC(10, 2) CHECK (amount >= 0),
+    criteria TEXT
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V30__finance.scholarship_awards.sql
+----------------------------------------
+CREATE TABLE finance.scholarship_awards (
+    award_id SERIAL PRIMARY KEY,
+    scholarship_id INT NOT NULL REFERENCES finance.scholarships(scholarship_id),
+    student_id INT NOT NULL REFERENCES academic.students(student_id),
+    award_date DATE DEFAULT CURRENT_DATE
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V31__system.users.sql
+----------------------------------------
+CREATE TABLE system.users (
+    user_id SERIAL PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V32__system.roles.sql
+----------------------------------------
+CREATE TABLE system.roles (
+    role_id SERIAL PRIMARY KEY,
+    role_name VARCHAR(50) UNIQUE NOT NULL,
+    description TEXT
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V33__system.user_roles.sql
+----------------------------------------
+CREATE TABLE system.user_roles (
+    user_id INT NOT NULL REFERENCES system.users(user_id),
+    role_id INT NOT NULL REFERENCES system.roles(role_id),
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, role_id)
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V34__system.permissions.sql
+----------------------------------------
+CREATE TABLE system.permissions (
+    permission_id SERIAL PRIMARY KEY,
+    permission_name VARCHAR(50) UNIQUE NOT NULL,
+    description TEXT
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V35__system.role_permissions.sql
+----------------------------------------
+CREATE TABLE system.role_permissions (
+    role_id INT NOT NULL REFERENCES system.roles(role_id),
+    permission_id INT NOT NULL REFERENCES system.permissions(permission_id),
+    PRIMARY KEY (role_id, permission_id)
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V36__academic.prerequisites.sql
+----------------------------------------
+CREATE TABLE academic.prerequisites (
+    course_id INT NOT NULL REFERENCES academic.courses(course_id),
+    prerequisite_course_id INT NOT NULL REFERENCES academic.courses(course_id),
+    PRIMARY KEY (course_id, prerequisite_course_id),
+    CHECK (course_id <> prerequisite_course_id)
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V37__academic.waitlists.sql
+----------------------------------------
+CREATE TABLE academic.waitlists (
+    waitlist_id SERIAL PRIMARY KEY,
+    offering_id INT NOT NULL REFERENCES academic.course_offerings(offering_id),
+    student_id INT NOT NULL REFERENCES academic.students(student_id),
+    added_on DATE DEFAULT CURRENT_DATE,
+    position INT NOT NULL CHECK (position > 0)
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V38__academic.course_materials.sql
+----------------------------------------
+CREATE TABLE academic.course_materials (
+    material_id SERIAL PRIMARY KEY,
+    course_id INT NOT NULL REFERENCES academic.courses(course_id),
+    title VARCHAR(100) NOT NULL,
+    material_type VARCHAR(50) CHECK (material_type IN ('Lecture Notes', 'Slide', 'Video', 'Assignment')),
+    url TEXT,
+    uploaded_on DATE DEFAULT CURRENT_DATE
+);
+-e 
+
+----------------------------------------
+-- File: ./db-scripts/V39__library.publishers.sql
+----------------------------------------
+CREATE TABLE library.publishers (
+    publisher_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    address TEXT,
+    contact_email VARCHAR(100)
+);
+
+
+ALTER TABLE library.books
+ADD COLUMN publisher_id INT REFERENCES library.publishers(publisher_id);
+-e 
+
